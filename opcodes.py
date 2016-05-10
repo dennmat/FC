@@ -1,0 +1,284 @@
+#r = Register, c = Constant, m = Memory
+
+OPCODE_MAP = {
+	"MOV": {
+		'rr': 0xA0,
+		'rm': 0xA1,
+		'mr': 0xA2,
+		'rc': 0xA3,
+		'mc': 0xA4
+	},
+	"ADD": {
+		'rr': 0x20,
+		'rm': 0x21,
+		'mr': 0x22,
+		'rc': 0x23,
+		'mc': 0x24
+	},
+	"SUB": {
+		'rr': 0x29,
+		'rm': 0x2A,
+		'mr': 0x2B,
+		'rc': 0x2C,
+		'mc': 0x2D
+	},
+	"IMUL": {
+		'rr': 0x2E,
+		'rm': 0x2F,
+		'rrc': 0x30,
+		'rmc': 0x31
+	},
+	"IDIV": {
+		'r': 0x32,
+		'm': 0x33
+	},
+	"FMUL": {
+		'rr': 0x3C,
+		'rm': 0x3D,
+		'rrc': 0x3E,
+		'rmc': 0x3F
+	},
+	"FDIV": {
+		'r': 0x40,
+		'm': 0x41
+	},
+	"NOT": {
+		'r': 0x34,
+		'm': 0x35
+	},
+	"NEG": {
+		'r': 0x36,
+		'm': 0x37
+	},
+	"CMP": {
+		'rr': 0x38,
+		'rm': 0x39,
+		'mr': 0x3A,
+		'rc': 0x3B
+	},
+	"AND": 0x07,
+	"OR": 0x08,
+	"XAND": 0x09,
+	"XOR": 0x0A,
+	"JMPC": {
+		'c': 0x0B
+	},
+	"JE": 0x0C,
+	"JNE": 0x0D,
+	"JZ": 0x0E,
+	"JNZ": 0x0F,
+	"JL": 0x10,
+	"JLE": 0x11,
+	"JG": 0x12,
+	"JGE": 0x13,
+	"JCXZ": 0x14,
+	"JECXZ": 0x15,
+	"SHR": 0x16,
+	"SHL": 0x17,
+	"SAR": 0x18,
+	"SAL": 0x19,
+	"ROT": 0x1A,
+	"CALL": 0x1B,
+	"RET": 0x1C,
+	"PUSH": {
+		'r': 0xA5,
+		'm': 0xA6,
+		'c': 0xA7
+	},
+	"POP": {
+		'r': 0xA8,
+		'm': 0xA9
+	},
+	"NOP": 0x1F,
+	"LEA": 0xAA,
+	"INC": {
+		'r': 0x25,
+		'm': 0x26
+	},
+	"DEC": {
+		'r': 0x27,
+		'm': 0x28
+	},
+	#These really shouldn't be in here
+	# but for development speed cheating a bit
+	"GMOV": { #Copy from memory
+		'r': 0x43,
+		'mm': 0x45,
+		'mc': 0x47
+	},
+	"GPOS": { #Move a "Cursor"
+		'rr': 0x48,
+		'rm': 0x49,
+		'mr': 0x4A,
+		'mm': 0x4B,
+		'rc': 0x4C,
+		'mc': 0x4D,
+		'cc': 0x4E,
+		'cm': 0x4F,
+		'cr': 0x50
+	},
+	"GSELECT": { #Select a region x, y from cursor
+		'rr': 0x54,
+		'rm': 0x55,
+		'mr': 0x56,
+		'mm': 0x57,
+		'rc': 0x58,
+		'mc': 0x59,
+		'cc': 0x5A,
+		'cm': 0x5B,
+		'cr': 0x5C
+	},
+	"GRESET": 0x44, #Reset flags for cursor and selected region
+	"GSET": { #Color pixel at Cursor, or Selection if available
+		'r': 0x51,
+		'm': 0x52,
+		'c': 0x53
+	},
+	"GFLIP": 0x5D
+}
+
+OPCODE_SIZE = {
+	0x00: 0,
+	0xA0: 2,
+	0xA1: 2,
+	0xA2: 2,
+	0xA3: 2,
+	0xA4: 2,
+	0x20: 2,
+	0x21: 2,
+	0x22: 2,
+	0x23: 2,
+	0x24: 2,
+	0x29: 2,
+	0x2A: 2,
+	0x2B: 2,
+	0x2C: 2,
+	0x2D: 2,
+	0x2E: 2,
+	0x2F: 2,
+	0x30: 3,
+	0x31: 3,
+	0x32: 1,
+	0x33: 1,
+	0x3C: 2,
+	0x3D: 2,
+	0x3E: 3,
+	0x3F: 3,
+	0x40: 1,
+	0x41: 1,
+	0x34: 1,
+	0x35: 1,
+	0x36: 1,
+	0x37: 1,
+	0x38: 2,
+	0x39: 2,
+	0x3A: 2,
+	0x3B: 2,
+	0x07: 2,
+	0x08: 2,
+	0x09: 2,
+	0x0A: 2,
+	0x0B: 1,
+	0x0C: 2,
+	0x0D: 2,
+	0x0E: 2,
+	0x0F: 2,
+	0x10: 2,
+	0x11: 2,
+	0x12: 2,
+	0x13: 2,
+	0x14: 2,
+	0x15: 2,
+	0x16: 2,
+	0x17: 2,
+	0x18: 2,
+	0x19: 2,
+	0x1A: 2,
+	0x1B: 0,
+	0x1C: 0,
+	0xA5: 1,
+	0xA6: 1,
+	0xA7: 1,
+	0xA8: 1,
+	0xA9: 1,
+	0x1F: 0,
+	0xAA: 1,
+	0x25: 1,
+	0x26: 1,
+	0x27: 1,
+	0x28: 1,
+	0x43: 1,
+	0x45: 2,
+	0x47: 2,
+	0x48: 2,
+	0x49: 2,
+	0x4A: 2,
+	0x4B: 2,
+	0x4C: 2,
+	0x4D: 2,
+	0x4E: 2,
+	0x4F: 2,
+	0x50: 2,
+	0x54: 2,
+	0x55: 2,
+	0x56: 2,
+	0x57: 2,
+	0x58: 2,
+	0x59: 2,
+	0x5A: 2,
+	0x5B: 2,
+	0x5C: 2,
+	0x44: 0,
+	0x51: 1,
+	0x52: 1,
+	0x53: 1,
+	0x5D: 0
+}
+
+#FLAGS
+
+#REGISTERS
+#General
+R_EAH = 0
+R_EAL = 1
+R_EBH = 2
+R_EBL = 3
+R_ECH = 4
+R_ECL = 5
+R_EDH = 6
+R_EDL = 7
+
+#Index
+R_SI = 8
+R_DI = 9
+R_BP = 10 #Base Pointer
+R_SP = 11 #Stack Pointer
+
+#Program Counter
+R_IP = 12
+
+#Segment Registers -- Probably wont be using these, as I dont actually need to worry about memory size issues
+R_CS = 13
+R_DS = 14
+R_ES = 15
+R_SS = 16
+
+REGISTERS = (
+	('EAH', R_EAH),
+	('EAL', R_EAL),
+	('EBH', R_EBH),
+	('EBL', R_EBL),
+	('ECH', R_ECH),
+	('ECL', R_ECL),
+	('EDH', R_EDH),
+	('EDL', R_EDL),
+	('SI', R_SI),
+	('DI', R_DI),
+	('BP', R_BP),
+	('SP', R_SP),
+	('IP', R_IP),
+	('CS', R_CS),
+	('DS', R_DS),
+	('ES', R_ES),
+	('SS', R_SS)
+)
